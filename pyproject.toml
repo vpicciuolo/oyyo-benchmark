@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oyyo-benchmark"
+version = "0.1.0"
+description = "Reproducible benchmark framework for OYYO"
+requires-python = ">=3.11"
+
+[project.scripts]
+oyyo-benchmark = "oyyo_benchmark.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

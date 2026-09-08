@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oyyo.one/schemas/benchmark-result-1.0.schema.json",
+  "title": "OYYO Benchmark Result",
+  "type": "object",
+  "required": ["suite", "version", "passed", "environment", "metrics"],
+  "properties": {
+    "suite": {"type": "string"},
+    "version": {"type": "string"},
+    "passed": {"type": "boolean"},
+    "environment": {"type": "object"},
+    "metrics": {"type": "object"},
+    "model": {"type": ["object", "null"]},
+    "runtime": {"type": ["object", "null"]},
+    "created_at": {"type": ["string", "null"], "format": "date-time"}
+  },
+  "additionalProperties": true
+}

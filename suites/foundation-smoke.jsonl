@@ -1,0 +1,2 @@
+{"id":"foundation-001","category":"hardware","task":"detect CPU architecture and provide CPU fallback","metric":"pass_fail"}
+{"id":"foundation-002","category":"reproducibility","task":"emit machine-readable benchmark result with environment metadata","metric":"pass_fail"}
