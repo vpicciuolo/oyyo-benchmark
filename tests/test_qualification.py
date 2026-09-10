@@ -1,4 +1,6 @@
 import copy
+import hashlib
+import json
 import unittest
 
 from oyyo_benchmark.qualification import qualify_candidate
@@ -29,6 +31,16 @@ MATRIX = {
         }
     },
 }
+
+
+def canonical_sha256(value):
+    encoded = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def candidate():
@@ -80,6 +92,11 @@ class NativeQualificationTest(unittest.TestCase):
         self.assertEqual(first.qualification_id, second.qualification_id)
         self.assertEqual(first.evidence_sha256, second.evidence_sha256)
         self.assertEqual(first.artifact_sha256, "aa" * 32)
+        self.assertEqual(first.evidence_sha256, canonical_sha256(first.evidence_binding))
+        self.assertEqual(first.evidence_binding["matrix_id"], "matrix-test-0.1")
+        self.assertEqual(
+            first.evidence_binding["independence"]["artifact_sha256"], "aa" * 32
+        )
 
     def test_changed_evidence_changes_qualification_identity(self):
         first = qualify_candidate(candidate(), independence(), MATRIX)
@@ -88,6 +105,22 @@ class NativeQualificationTest(unittest.TestCase):
         second = qualify_candidate(changed, independence(), MATRIX)
         self.assertNotEqual(first.qualification_id, second.qualification_id)
         self.assertNotEqual(first.evidence_sha256, second.evidence_sha256)
+
+    def test_receipt_binding_is_detached_from_mutable_inputs(self):
+        candidate_value = candidate()
+        independence_value = independence()
+        matrix_value = copy.deepcopy(MATRIX)
+        result = qualify_candidate(candidate_value, independence_value, matrix_value)
+        digest = result.evidence_sha256
+
+        candidate_value["metrics"]["quality"] = 1
+        independence_value["runtime"]["external_ai_requests_observed"] = 99
+        matrix_value["matrix_id"] = "mutated"
+
+        self.assertEqual(result.evidence_sha256, digest)
+        self.assertEqual(result.evidence_sha256, canonical_sha256(result.evidence_binding))
+        self.assertEqual(result.evidence_binding["candidate"]["metrics"]["quality"], 80)
+        self.assertEqual(result.evidence_binding["matrix_id"], "matrix-test-0.1")
 
     def test_failed_independence_cannot_qualify(self):
         evidence = independence()
