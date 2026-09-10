@@ -3,7 +3,7 @@
   "candidate_id": "oyyo-mini-dev-example",
   "model_id": "oyyo-mini-dev-example",
   "family": "mini",
-  "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "runtime": {
     "model_id": "oyyo-mini-dev-example",
     "native_model_loaded": true,
@@ -22,7 +22,7 @@
       "model_id": "oyyo-mini-dev-example",
       "provider_contract": "oyyo-native-provider-0.1",
       "external_ai_provider_used": false,
-      "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "structured_output": {
       "passed": true,
@@ -30,7 +30,7 @@
       "model_id": "oyyo-mini-dev-example",
       "provider_contract": "oyyo-native-provider-0.1",
       "external_ai_provider_used": false,
-      "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "tool_calling": {
       "passed": true,
@@ -38,7 +38,7 @@
       "model_id": "oyyo-mini-dev-example",
       "provider_contract": "oyyo-native-provider-0.1",
       "external_ai_provider_used": false,
-      "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "translation": {
       "passed": true,
@@ -46,7 +46,7 @@
       "model_id": "oyyo-mini-dev-example",
       "provider_contract": "oyyo-native-provider-0.1",
       "external_ai_provider_used": false,
-      "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     }
   }
 }
