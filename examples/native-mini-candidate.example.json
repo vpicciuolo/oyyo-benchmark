@@ -1,0 +1,24 @@
+{
+  "candidate_id": "oyyo-mini-dev-example",
+  "family": "mini",
+  "hard_gates": {
+    "provenance_accepted": true,
+    "commercial_use_allowed": true,
+    "adaptation_rights_allowed": true,
+    "reproducible_revision": true,
+    "artifact_integrity_verified": true,
+    "runtime_loadable": true,
+    "policy_handoff_passed": true,
+    "structured_tool_contract_passed": true,
+    "benchmark_contamination_reviewed": true,
+    "independence_test_passed": true
+  },
+  "metrics": {
+    "quality_score": 72,
+    "multilingual_semantic_score": 75,
+    "tool_structured_reliability_pct": 92,
+    "coding_score": 68,
+    "peak_ram_gib": 7.5,
+    "p50_first_token_ms": 420
+  }
+}

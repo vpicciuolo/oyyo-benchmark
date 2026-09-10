@@ -12,4 +12,9 @@ jobs:
         with:
           python-version: '${{ matrix.python-version }}'
       - run: pip install -e .
+      - run: python -m unittest discover -s tests -v
       - run: oyyo-benchmark smoke
+      - run: >-
+          oyyo-benchmark candidate-evaluate
+          --matrix suites/native-first-candidate-0.1.json
+          --candidate examples/native-mini-candidate.example.json

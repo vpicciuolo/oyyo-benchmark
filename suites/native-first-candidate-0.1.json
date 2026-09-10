@@ -1,0 +1,47 @@
+{
+  "schema_version": "0.1",
+  "matrix_id": "oyyo-native-first-candidate-0.1",
+  "purpose": "Rank legally accepted, reproducible OYYO Mini and Nano engineering candidates on a common evidence model.",
+  "hard_gates": [
+    {"id": "provenance_accepted", "description": "Source, revision, transformations and rights are recorded and accepted."},
+    {"id": "commercial_use_allowed", "description": "Commercial deployment rights are accepted."},
+    {"id": "adaptation_rights_allowed", "description": "Training, fine-tuning, distillation or other intended adaptation rights are accepted."},
+    {"id": "reproducible_revision", "description": "Exact source/model/tokenizer revision is reproducible."},
+    {"id": "artifact_integrity_verified", "description": "Candidate package artifacts are hash verified."},
+    {"id": "runtime_loadable", "description": "Candidate loads through the OYYO native provider shell."},
+    {"id": "policy_handoff_passed", "description": "Declared deployment policy handoff passes."},
+    {"id": "structured_tool_contract_passed", "description": "Declared structured-output/tool capability passes contract tests."},
+    {"id": "benchmark_contamination_reviewed", "description": "Known contamination risks were reviewed."},
+    {"id": "independence_test_passed", "description": "Required OYYO workflows execute with third-party AI providers disabled."}
+  ],
+  "family_profiles": {
+    "mini": {
+      "role": "first executable engineering vehicle for laptop/desktop OYYO",
+      "metrics": [
+        {"id": "quality_score", "direction": "higher_is_better", "min": 0, "max": 100, "weight": 0.25},
+        {"id": "multilingual_semantic_score", "direction": "higher_is_better", "min": 0, "max": 100, "weight": 0.15},
+        {"id": "tool_structured_reliability_pct", "direction": "higher_is_better", "min": 0, "max": 100, "weight": 0.20},
+        {"id": "coding_score", "direction": "higher_is_better", "min": 0, "max": 100, "weight": 0.10},
+        {"id": "peak_ram_gib", "direction": "lower_is_better", "min": 4, "max": 16, "weight": 0.15},
+        {"id": "p50_first_token_ms", "direction": "lower_is_better", "min": 50, "max": 1500, "weight": 0.15}
+      ]
+    },
+    "nano": {
+      "role": "edge/constrained optimization line following the Mini pipeline",
+      "metrics": [
+        {"id": "quality_score", "direction": "higher_is_better", "min": 0, "max": 100, "weight": 0.20},
+        {"id": "multilingual_semantic_score", "direction": "higher_is_better", "min": 0, "max": 100, "weight": 0.10},
+        {"id": "tool_structured_reliability_pct", "direction": "higher_is_better", "min": 0, "max": 100, "weight": 0.10},
+        {"id": "peak_ram_gib", "direction": "lower_is_better", "min": 1, "max": 8, "weight": 0.30},
+        {"id": "p50_first_token_ms", "direction": "lower_is_better", "min": 25, "max": 1000, "weight": 0.20},
+        {"id": "package_size_gib", "direction": "lower_is_better", "min": 0.25, "max": 4, "weight": 0.10}
+      ]
+    }
+  },
+  "ranking_rule": "A candidate is rankable only after every hard gate is true and every family metric is present. Eligible candidates rank by weighted normalized score descending.",
+  "notes": [
+    "Compare performance metrics on the same declared hardware profile.",
+    "Ranges are N0/N1 engineering normalization bands, not product promises.",
+    "Public leaderboard position and raw parameter count are not selection gates."
+  ]
+}
