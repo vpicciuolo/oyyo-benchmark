@@ -3,7 +3,10 @@ import hashlib
 import json
 import unittest
 
-from oyyo_benchmark.qualification import qualify_candidate
+from oyyo_benchmark.qualification import (
+    qualify_candidate,
+    verify_qualification_receipt,
+)
 
 
 MATRIX = {
@@ -97,6 +100,7 @@ class NativeQualificationTest(unittest.TestCase):
         self.assertEqual(
             first.evidence_binding["independence"]["artifact_sha256"], "aa" * 32
         )
+        verify_qualification_receipt(first.to_dict())
 
     def test_changed_evidence_changes_qualification_identity(self):
         first = qualify_candidate(candidate(), independence(), MATRIX)
@@ -121,6 +125,31 @@ class NativeQualificationTest(unittest.TestCase):
         self.assertEqual(result.evidence_sha256, canonical_sha256(result.evidence_binding))
         self.assertEqual(result.evidence_binding["candidate"]["metrics"]["quality"], 80)
         self.assertEqual(result.evidence_binding["matrix_id"], "matrix-test-0.1")
+        verify_qualification_receipt(result.to_dict())
+
+    def test_tampered_embedded_candidate_is_rejected(self):
+        receipt = qualify_candidate(candidate(), independence(), MATRIX).to_dict()
+        receipt["evidence_binding"]["candidate"]["metrics"]["quality"] = 99
+        with self.assertRaises(ValueError):
+            verify_qualification_receipt(receipt)
+
+    def test_tampered_summary_identity_is_rejected(self):
+        receipt = qualify_candidate(candidate(), independence(), MATRIX).to_dict()
+        receipt["artifact_sha256"] = "bb" * 32
+        with self.assertRaises(ValueError):
+            verify_qualification_receipt(receipt)
+
+    def test_forged_qualification_id_is_rejected(self):
+        receipt = qualify_candidate(candidate(), independence(), MATRIX).to_dict()
+        receipt["qualification_id"] = "oyyo-qualification-forged"
+        with self.assertRaises(ValueError):
+            verify_qualification_receipt(receipt)
+
+    def test_qualified_receipt_cannot_gain_failures_after_issuance(self):
+        receipt = qualify_candidate(candidate(), independence(), MATRIX).to_dict()
+        receipt["hard_gate_failures"] = ["runtime_loadable"]
+        with self.assertRaises(ValueError):
+            verify_qualification_receipt(receipt)
 
     def test_failed_independence_cannot_qualify(self):
         evidence = independence()
@@ -129,6 +158,7 @@ class NativeQualificationTest(unittest.TestCase):
         self.assertFalse(result.qualified)
         self.assertFalse(result.independence_passed)
         self.assertIn("independence_test_passed", result.hard_gate_failures)
+        verify_qualification_receipt(result.to_dict())
 
     def test_candidate_identity_mismatch_is_rejected(self):
         data = copy.deepcopy(independence())
