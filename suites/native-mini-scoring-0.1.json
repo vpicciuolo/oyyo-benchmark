@@ -1,0 +1,138 @@
+{
+  "schema_version": "0.1",
+  "suite_id": "oyyo-mini-synthetic-scoring-0.1",
+  "purpose": "Deterministic OYYO-authored engineering scoring fixtures for Mini candidate comparison without copying public benchmark questions.",
+  "created_after_seed_revision": true,
+  "prompt_origin": "oyyo_synthetic",
+  "metrics": {
+    "quality_score": {
+      "cases": [
+        {
+          "id": "quality-inventory-001",
+          "prompt": "/no_think\nOYYO warehouse Zeta has 17 sealed cases. 5 are moved to Bay A, then 3 of the remaining cases are moved to Bay B. Return only the number of cases still in Zeta.",
+          "validator": "exact_text",
+          "expected": "9"
+        },
+        {
+          "id": "quality-priority-002",
+          "prompt": "/no_think\nAn OYYO deployment has three tasks: A blocks B, B blocks C, and C has no dependents. Return only the valid execution order as A>B>C.",
+          "validator": "exact_text",
+          "expected": "A>B>C"
+        },
+        {
+          "id": "quality-policy-003",
+          "prompt": "/no_think\nA local OYYO job may read files but writes require explicit approval. A request asks to overwrite config.json and no approval exists. Return exactly one word: ALLOW or DENY.",
+          "validator": "exact_text",
+          "expected": "DENY"
+        },
+        {
+          "id": "quality-json-004",
+          "prompt": "/no_think\nReturn exactly this JSON after calculating the total: three OYYO nodes report 4, 7 and 9 checks. Schema: {\"total\":integer,\"nodes\":3}.",
+          "validator": "exact_json",
+          "expected": {"total": 20, "nodes": 3}
+        }
+      ]
+    },
+    "multilingual_semantic_score": {
+      "cases": [
+        {
+          "id": "multi-it-001",
+          "prompt": "/no_think\nTranslate 'The private workspace is ready.' into Italian. Return only the translation.",
+          "validator": "accepted_texts",
+          "accepted": ["Lo spazio di lavoro privato è pronto.", "L'area di lavoro privata è pronta."]
+        },
+        {
+          "id": "multi-es-002",
+          "prompt": "/no_think\nTranslate 'The agent needs approval before writing.' into Spanish. Return only the translation.",
+          "validator": "accepted_texts",
+          "accepted": ["El agente necesita aprobación antes de escribir.", "El agente requiere aprobación antes de escribir."]
+        },
+        {
+          "id": "multi-fr-003",
+          "prompt": "/no_think\nTranslate 'The local model is offline.' into French. Return only the translation.",
+          "validator": "accepted_texts",
+          "accepted": ["Le modèle local est hors ligne.", "Le modèle local est déconnecté."]
+        },
+        {
+          "id": "multi-ar-004",
+          "prompt": "/no_think\nTranslate 'The data remains on this device.' into Modern Standard Arabic. Return only the translation.",
+          "validator": "accepted_texts",
+          "accepted": ["تبقى البيانات على هذا الجهاز.", "تظل البيانات على هذا الجهاز."]
+        }
+      ]
+    },
+    "tool_structured_reliability_pct": {
+      "cases": [
+        {
+          "id": "tool-read-001",
+          "prompt": "/no_think\nReturn exactly this JSON object and nothing else: {\"type\":\"tool_call\",\"installation_id\":\"fixture-read\",\"tool\":\"lookup\",\"arguments\":{\"query\":\"node-17\"}}",
+          "validator": "exact_json",
+          "expected": {"type": "tool_call", "installation_id": "fixture-read", "tool": "lookup", "arguments": {"query": "node-17"}}
+        },
+        {
+          "id": "tool-final-002",
+          "prompt": "/no_think\nReturn exactly this JSON object and nothing else: {\"type\":\"final\",\"content\":\"OYYO_DONE\"}",
+          "validator": "exact_json",
+          "expected": {"type": "final", "content": "OYYO_DONE"}
+        },
+        {
+          "id": "tool-args-003",
+          "prompt": "/no_think\nReturn exactly this JSON object and nothing else: {\"type\":\"tool_call\",\"installation_id\":\"fixture-read\",\"tool\":\"range\",\"arguments\":{\"start\":3,\"end\":8}}",
+          "validator": "exact_json",
+          "expected": {"type": "tool_call", "installation_id": "fixture-read", "tool": "range", "arguments": {"start": 3, "end": 8}}
+        },
+        {
+          "id": "tool-unicode-004",
+          "prompt": "/no_think\nReturn exactly this JSON object and nothing else: {\"type\":\"tool_call\",\"installation_id\":\"fixture-read\",\"tool\":\"lookup\",\"arguments\":{\"query\":\"caffè 東京\"}}",
+          "validator": "exact_json",
+          "expected": {"type": "tool_call", "installation_id": "fixture-read", "tool": "lookup", "arguments": {"query": "caffè 東京"}}
+        }
+      ]
+    },
+    "coding_score": {
+      "cases": [
+        {
+          "id": "code-python-001",
+          "prompt": "/no_think\nReturn only this Python expression simplified to its result: sum(x*x for x in [1,2,3,4]). Return only the integer.",
+          "validator": "exact_text",
+          "expected": "30"
+        },
+        {
+          "id": "code-bool-002",
+          "prompt": "/no_think\nIn Rust, the expression `true && !false` evaluates to what boolean literal? Return only `true` or `false`.",
+          "validator": "exact_text",
+          "expected": "true"
+        },
+        {
+          "id": "code-json-003",
+          "prompt": "/no_think\nGiven JSON {\"a\":[2,5,8]}, return exactly {\"last\":8,\"length\":3} and nothing else.",
+          "validator": "exact_json",
+          "expected": {"last": 8, "length": 3}
+        },
+        {
+          "id": "code-index-004",
+          "prompt": "/no_think\nFor zero-based indexing, what index selects the fourth item? Return only the integer.",
+          "validator": "exact_text",
+          "expected": "3"
+        }
+      ]
+    }
+  },
+  "performance": {
+    "peak_ram_gib": {
+      "source": "measured_process_peak_rss_bytes",
+      "aggregation": "max",
+      "notes": "Measure on the declared hardware profile while executing the scoring suite."
+    },
+    "p50_first_token_ms": {
+      "source": "measured_first_output_byte_ms",
+      "aggregation": "median",
+      "notes": "Measure from inference process start to first generated stdout byte with prompt display disabled. Current process-per-request llama.cpp backend therefore includes process/model startup cost."
+    }
+  },
+  "notes": [
+    "All correctness cases are synthetic OYYO-authored fixtures, not copied public benchmark items.",
+    "These compact engineering fixtures are for candidate selection hygiene, not public claims of general intelligence.",
+    "Broader external benchmarks may be added later only with explicit contamination/provenance review."
+  ]
+}
