@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Any
 
 
+_VERIFIED_HARD_GATES = {"independence_test_passed"}
+
+
 @dataclass
 class CandidateEvaluation:
     candidate_id: str
@@ -42,7 +45,9 @@ def _normalized_score(value: float, spec: dict[str, Any]) -> float:
 
 
 def evaluate_candidate(
-    candidate: dict[str, Any], matrix: dict[str, Any]
+    candidate: dict[str, Any],
+    matrix: dict[str, Any],
+    verified_hard_gates: dict[str, bool] | None = None,
 ) -> CandidateEvaluation:
     candidate_id = str(candidate.get("candidate_id", "")).strip()
     family = str(candidate.get("family", "")).strip()
@@ -56,12 +61,17 @@ def evaluate_candidate(
     hard_evidence = candidate.get("hard_gates")
     if not isinstance(hard_evidence, dict):
         hard_evidence = {}
+    verified_hard_gates = verified_hard_gates or {}
 
-    hard_gate_failures = [
-        gate["id"]
-        for gate in matrix.get("hard_gates", [])
-        if hard_evidence.get(gate["id"]) is not True
-    ]
+    hard_gate_failures: list[str] = []
+    for gate in matrix.get("hard_gates", []):
+        gate_id = gate["id"]
+        if gate_id in _VERIFIED_HARD_GATES:
+            passed = verified_hard_gates.get(gate_id) is True
+        else:
+            passed = hard_evidence.get(gate_id) is True
+        if not passed:
+            hard_gate_failures.append(gate_id)
 
     metrics = candidate.get("metrics")
     if not isinstance(metrics, dict):
@@ -104,9 +114,19 @@ def evaluate_candidate(
 
 
 def rank_candidates(
-    candidates: list[dict[str, Any]], matrix: dict[str, Any]
+    candidates: list[dict[str, Any]],
+    matrix: dict[str, Any],
+    verified_hard_gates_by_candidate: dict[str, dict[str, bool]] | None = None,
 ) -> list[CandidateEvaluation]:
-    evaluations = [evaluate_candidate(candidate, matrix) for candidate in candidates]
+    verified_hard_gates_by_candidate = verified_hard_gates_by_candidate or {}
+    evaluations = [
+        evaluate_candidate(
+            candidate,
+            matrix,
+            verified_hard_gates_by_candidate.get(str(candidate.get("candidate_id", "")), {}),
+        )
+        for candidate in candidates
+    ]
     return sorted(
         evaluations,
         key=lambda result: (
