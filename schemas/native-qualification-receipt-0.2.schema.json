@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oyyo.one/schemas/native-qualification-receipt-0.2.schema.json",
+  "title": "OYYO Native Qualification Receipt 0.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "qualification_id",
+    "matrix_id",
+    "matrix_sha256",
+    "candidate_id",
+    "candidate_sha256",
+    "model_id",
+    "family",
+    "artifact_sha256",
+    "provider_contract",
+    "qualified",
+    "score",
+    "hard_gate_failures",
+    "missing_metrics",
+    "independence_gate_id",
+    "independence_passed",
+    "independence_evidence_sha256",
+    "evidence_binding",
+    "evidence_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.2"},
+    "qualification_id": {
+      "type": "string",
+      "pattern": "^oyyo-qualification-[0-9a-f]{24}$"
+    },
+    "matrix_id": {"type": "string", "minLength": 1},
+    "matrix_sha256": {"$ref": "#/$defs/sha256"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "candidate_sha256": {"$ref": "#/$defs/sha256"},
+    "model_id": {
+      "type": "string",
+      "pattern": "^oyyo-[a-z0-9._-]+$"
+    },
+    "family": {"type": "string", "minLength": 1},
+    "artifact_sha256": {"$ref": "#/$defs/sha256"},
+    "provider_contract": {"type": "string", "minLength": 1},
+    "qualified": {"type": "boolean"},
+    "score": {"type": ["number", "null"]},
+    "hard_gate_failures": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "missing_metrics": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "independence_gate_id": {"type": "string", "minLength": 1},
+    "independence_passed": {"type": "boolean"},
+    "independence_evidence_sha256": {"$ref": "#/$defs/sha256"},
+    "evidence_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "matrix",
+        "candidate",
+        "independence_evidence"
+      ],
+      "properties": {
+        "schema_version": {"const": "0.2"},
+        "matrix": {"type": "object"},
+        "candidate": {"type": "object"},
+        "independence_evidence": {"type": "object"}
+      }
+    },
+    "evidence_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
