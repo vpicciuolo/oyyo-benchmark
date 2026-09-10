@@ -6,8 +6,25 @@ from pathlib import Path
 
 from .candidates import load_json, rank_candidates
 from .independence import evaluate_independence
+from .native_evidence import assemble_independence_evidence
 from .qualification import qualify_candidate, verify_qualification_receipt
 from .runner import run_foundation_smoke, save_result
+
+
+def _workflow_receipts(values: list[str]) -> dict[str, dict]:
+    receipts: dict[str, dict] = {}
+    for value in values:
+        if "=" not in value:
+            raise ValueError("--receipt must use workflow=path syntax")
+        workflow_id, path = value.split("=", 1)
+        workflow_id = workflow_id.strip()
+        path = path.strip()
+        if not workflow_id or not path:
+            raise ValueError("--receipt must use non-empty workflow=path syntax")
+        if workflow_id in receipts:
+            raise ValueError(f"duplicate provider receipt for workflow {workflow_id}")
+        receipts[workflow_id] = load_json(path)
+    return receipts
 
 
 def main(argv=None):
@@ -16,6 +33,21 @@ def main(argv=None):
 
     smoke = sub.add_parser("smoke")
     smoke.add_argument("--output")
+
+    native_evidence = sub.add_parser(
+        "native-evidence-assemble",
+        help="Validate OYYO native-provider workflow receipts and assemble independence evidence.",
+    )
+    native_evidence.add_argument("--suite", required=True)
+    native_evidence.add_argument("--candidate-id", required=True)
+    native_evidence.add_argument("--family", required=True)
+    native_evidence.add_argument(
+        "--receipt",
+        action="append",
+        required=True,
+        help="Provider evaluation receipt as workflow=path. Repeat once per suite workflow.",
+    )
+    native_evidence.add_argument("--output")
 
     independence_evaluate = sub.add_parser(
         "independence-evaluate",
@@ -70,6 +102,33 @@ def main(argv=None):
             save_result(args.output, result)
         print(json.dumps(result.to_dict(), indent=2))
         raise SystemExit(0 if result.passed else 1)
+
+    if args.command == "native-evidence-assemble":
+        suite = load_json(args.suite)
+        receipts = _workflow_receipts(args.receipt)
+        evidence, validations = assemble_independence_evidence(
+            receipts,
+            suite,
+            candidate_id=args.candidate_id,
+            family=args.family,
+        )
+        payload = {
+            "suite_id": suite.get("suite_id"),
+            "validations": [
+                {
+                    "workflow_id": item.workflow_id,
+                    "passed": item.passed,
+                    "reason": item.reason,
+                }
+                for item in validations
+            ],
+            "evidence": evidence,
+        }
+        rendered = json.dumps(payload, indent=2, ensure_ascii=False)
+        if args.output:
+            Path(args.output).write_text(rendered + "\n", encoding="utf-8")
+        print(rendered)
+        raise SystemExit(0 if all(item.passed for item in validations) else 1)
 
     if args.command == "independence-evaluate":
         matrix = load_json(args.matrix)
