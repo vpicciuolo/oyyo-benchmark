@@ -13,6 +13,46 @@ from .independence import evaluate_independence
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 QUALIFICATION_SCHEMA_VERSION = "0.2"
 QUALIFICATION_ID_PREFIX = "oyyo-qualification-"
+NATIVE_FIRST_CANDIDATE_MATRIX_ID = "oyyo-native-first-candidate-0.1"
+NATIVE_PROVIDER_CONTRACT = "oyyo-native-provider-0.1"
+INDEPENDENCE_GATE_ID = "oyyo-native-independence-0.1"
+
+HARD_GATES = [
+    "provenance_accepted",
+    "commercial_use_allowed",
+    "adaptation_rights_allowed",
+    "reproducible_revision",
+    "artifact_integrity_verified",
+    "runtime_loadable",
+    "policy_handoff_passed",
+    "structured_tool_contract_passed",
+    "benchmark_contamination_reviewed",
+    "independence_test_passed",
+]
+
+EXPECTED_WORKFLOWS = {
+    "mini": ["chat", "structured_output", "tool_calling", "translation"],
+    "nano": ["chat", "structured_output", "translation"],
+}
+
+EXPECTED_METRICS = {
+    "mini": [
+        ("quality_score", "higher_is_better", 0.0, 100.0, 0.25),
+        ("multilingual_semantic_score", "higher_is_better", 0.0, 100.0, 0.15),
+        ("tool_structured_reliability_pct", "higher_is_better", 0.0, 100.0, 0.20),
+        ("coding_score", "higher_is_better", 0.0, 100.0, 0.10),
+        ("peak_ram_gib", "lower_is_better", 4.0, 16.0, 0.15),
+        ("p50_first_token_ms", "lower_is_better", 50.0, 1500.0, 0.15),
+    ],
+    "nano": [
+        ("quality_score", "higher_is_better", 0.0, 100.0, 0.20),
+        ("multilingual_semantic_score", "higher_is_better", 0.0, 100.0, 0.10),
+        ("tool_structured_reliability_pct", "higher_is_better", 0.0, 100.0, 0.10),
+        ("peak_ram_gib", "lower_is_better", 1.0, 8.0, 0.30),
+        ("p50_first_token_ms", "lower_is_better", 25.0, 1000.0, 0.20),
+        ("package_size_gib", "lower_is_better", 0.25, 4.0, 0.10),
+    ],
+}
 
 
 @dataclass
@@ -72,6 +112,63 @@ def _required_sha256(value: Any, label: str) -> str:
     return digest
 
 
+def validate_native_first_candidate_matrix(matrix: dict[str, Any]) -> None:
+    """Fail closed if qualification semantics drift under the frozen matrix id."""
+    if matrix.get("schema_version") != "0.1":
+        raise ValueError("native qualification matrix schema_version must be 0.1")
+    if matrix.get("matrix_id") != NATIVE_FIRST_CANDIDATE_MATRIX_ID:
+        raise ValueError(
+            f"qualification only accepts frozen matrix {NATIVE_FIRST_CANDIDATE_MATRIX_ID}"
+        )
+
+    hard_gates = matrix.get("hard_gates")
+    if not isinstance(hard_gates, list):
+        raise ValueError("matrix.hard_gates must be an array")
+    gate_ids = [
+        gate.get("id") if isinstance(gate, dict) else None
+        for gate in hard_gates
+    ]
+    if gate_ids != HARD_GATES:
+        raise ValueError("frozen native qualification hard-gate semantics changed")
+
+    independence = matrix.get("independence")
+    if not isinstance(independence, dict):
+        raise ValueError("matrix.independence must be an object")
+    if independence.get("gate_id") != INDEPENDENCE_GATE_ID:
+        raise ValueError("frozen independence gate id changed")
+    if independence.get("provider_contract") != NATIVE_PROVIDER_CONTRACT:
+        raise ValueError("frozen native provider contract changed")
+    workflows = independence.get("required_workflows_by_family")
+    if workflows != EXPECTED_WORKFLOWS:
+        raise ValueError("frozen native independence workflow semantics changed")
+
+    profiles = matrix.get("family_profiles")
+    if not isinstance(profiles, dict) or set(profiles) != set(EXPECTED_METRICS):
+        raise ValueError("frozen native qualification family profiles changed")
+    for family, expected in EXPECTED_METRICS.items():
+        profile = profiles.get(family)
+        if not isinstance(profile, dict):
+            raise ValueError(f"matrix family profile {family} must be an object")
+        metrics = profile.get("metrics")
+        if not isinstance(metrics, list) or len(metrics) != len(expected):
+            raise ValueError(f"frozen {family} metric set changed")
+        observed = []
+        for spec in metrics:
+            if not isinstance(spec, dict):
+                raise ValueError(f"matrix {family} metric must be an object")
+            observed.append(
+                (
+                    spec.get("id"),
+                    spec.get("direction"),
+                    float(spec.get("min")),
+                    float(spec.get("max")),
+                    float(spec.get("weight")),
+                )
+            )
+        if observed != expected:
+            raise ValueError(f"frozen {family} metric semantics changed")
+
+
 def _candidate_package_binding(candidate: dict[str, Any]) -> tuple[str, str, str]:
     package = candidate.get("package_target")
     if not isinstance(package, dict):
@@ -104,6 +201,7 @@ def _recompute(
     independence_evidence: dict[str, Any],
     matrix: dict[str, Any],
 ):
+    validate_native_first_candidate_matrix(matrix)
     independence = evaluate_independence(independence_evidence, matrix)
     candidate_id = _required_string(candidate.get("candidate_id"), "candidate_id")
     family = _required_string(candidate.get("family"), "family")
@@ -162,6 +260,7 @@ def verify_qualification_receipt(receipt: dict[str, Any]) -> None:
         raise ValueError("evidence_binding.candidate must be an object")
     if not isinstance(independence_evidence, dict):
         raise ValueError("evidence_binding.independence_evidence must be an object")
+    validate_native_first_candidate_matrix(matrix)
 
     evidence_sha256 = _required_sha256(receipt.get("evidence_sha256"), "evidence_sha256")
     calculated_evidence = _sha256(binding)
@@ -236,6 +335,7 @@ def qualify_candidate(
     frozen_matrix = _frozen_json(matrix)
     frozen_candidate = _frozen_json(candidate)
     frozen_independence = _frozen_json(independence_evidence)
+    validate_native_first_candidate_matrix(frozen_matrix)
 
     (
         matrix_id,
