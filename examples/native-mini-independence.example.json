@@ -1,0 +1,52 @@
+{
+  "schema_version": "0.1",
+  "candidate_id": "oyyo-mini-dev-example",
+  "model_id": "oyyo-mini-dev-example",
+  "family": "mini",
+  "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "runtime": {
+    "model_id": "oyyo-mini-dev-example",
+    "native_model_loaded": true,
+    "external_model_fallback_enabled": false,
+    "external_ai_requests_observed": 0,
+    "external_ai_providers": [
+      {"provider_id": "openai", "enabled": false},
+      {"provider_id": "anthropic", "enabled": false},
+      {"provider_id": "google", "enabled": false}
+    ]
+  },
+  "workflows": {
+    "chat": {
+      "passed": true,
+      "execution_mode": "native",
+      "model_id": "oyyo-mini-dev-example",
+      "provider_contract": "oyyo-native-provider-0.1",
+      "external_ai_provider_used": false,
+      "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "structured_output": {
+      "passed": true,
+      "execution_mode": "native",
+      "model_id": "oyyo-mini-dev-example",
+      "provider_contract": "oyyo-native-provider-0.1",
+      "external_ai_provider_used": false,
+      "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "tool_calling": {
+      "passed": true,
+      "execution_mode": "native",
+      "model_id": "oyyo-mini-dev-example",
+      "provider_contract": "oyyo-native-provider-0.1",
+      "external_ai_provider_used": false,
+      "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "translation": {
+      "passed": true,
+      "execution_mode": "native",
+      "model_id": "oyyo-mini-dev-example",
+      "provider_contract": "oyyo-native-provider-0.1",
+      "external_ai_provider_used": false,
+      "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  }
+}
