@@ -24,6 +24,7 @@ class NativeQualification:
     missing_metrics: list[str]
     independence_gate_id: str
     independence_passed: bool
+    evidence_binding: dict[str, Any]
     evidence_sha256: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,6 +38,11 @@ def _canonical_bytes(value: Any) -> bytes:
         separators=(",", ":"),
         ensure_ascii=False,
     ).encode("utf-8")
+
+
+def _frozen_json(value: Any) -> Any:
+    """Detach qualification evidence from caller-owned mutable objects."""
+    return json.loads(_canonical_bytes(value).decode("utf-8"))
 
 
 def qualify_candidate(
@@ -63,12 +69,14 @@ def qualify_candidate(
     if not matrix_id:
         raise ValueError("matrix_id is required")
 
-    evidence_binding = {
-        "schema_version": "0.1",
-        "matrix_id": matrix_id,
-        "candidate": candidate,
-        "independence": independence.to_dict(),
-    }
+    evidence_binding = _frozen_json(
+        {
+            "schema_version": "0.1",
+            "matrix_id": matrix_id,
+            "candidate": candidate,
+            "independence": independence.to_dict(),
+        }
+    )
     evidence_sha256 = hashlib.sha256(_canonical_bytes(evidence_binding)).hexdigest()
     qualification_id = f"oyyo-qualification-{evidence_sha256[:24]}"
 
@@ -86,5 +94,6 @@ def qualify_candidate(
         missing_metrics=evaluation.missing_metrics,
         independence_gate_id=independence.gate_id,
         independence_passed=independence.passed,
+        evidence_binding=evidence_binding,
         evidence_sha256=evidence_sha256,
     )
