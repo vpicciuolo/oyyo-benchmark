@@ -1,6 +1,11 @@
 {
   "candidate_id": "oyyo-mini-dev-example",
   "family": "mini",
+  "package_target": {
+    "model_id": "oyyo-mini-dev-example",
+    "provider_contract": "oyyo-native-provider-0.1",
+    "primary_artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
   "hard_gates": {
     "provenance_accepted": true,
     "commercial_use_allowed": true,
