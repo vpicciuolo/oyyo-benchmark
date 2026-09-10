@@ -14,6 +14,7 @@ class IndependenceEvaluation:
     model_id: str
     family: str
     gate_id: str
+    artifact_sha256: str
     passed: bool
     violations: list[str]
     required_workflows: list[str]
@@ -83,9 +84,13 @@ def evaluate_independence(
     if not model_id.startswith("oyyo-"):
         raise ValueError("model_id must identify an OYYO native model")
     family = _required_string(evidence.get("family"), "family")
-    package_sha256 = _required_string(evidence.get("package_sha256"), "package_sha256")
-    if not _SHA256.fullmatch(package_sha256):
-        raise ValueError("package_sha256 must be a 64-character hexadecimal SHA-256 digest")
+    artifact_sha256 = _required_string(
+        evidence.get("artifact_sha256"), "artifact_sha256"
+    )
+    if not _SHA256.fullmatch(artifact_sha256):
+        raise ValueError(
+            "artifact_sha256 must be a 64-character hexadecimal SHA-256 digest"
+        )
 
     config = matrix.get("independence")
     if not isinstance(config, dict):
@@ -137,8 +142,8 @@ def evaluate_independence(
                 f"required workflow {workflow_id} used or did not explicitly exclude an external AI provider"
             )
             continue
-        if workflow.get("package_sha256") != package_sha256:
-            violations.append(f"required workflow {workflow_id} used a different package")
+        if workflow.get("artifact_sha256") != artifact_sha256:
+            violations.append(f"required workflow {workflow_id} used a different artifact")
             continue
         passed_workflows.append(workflow_id)
 
@@ -147,6 +152,7 @@ def evaluate_independence(
         model_id=model_id,
         family=family,
         gate_id=gate_id,
+        artifact_sha256=artifact_sha256.lower(),
         passed=not violations,
         violations=violations,
         required_workflows=required_workflows,
