@@ -11,7 +11,7 @@ from .independence import evaluate_independence
 
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-QUALIFICATION_SCHEMA_VERSION = "0.1"
+QUALIFICATION_SCHEMA_VERSION = "0.2"
 QUALIFICATION_ID_PREFIX = "oyyo-qualification-"
 
 
@@ -20,16 +20,20 @@ class NativeQualification:
     schema_version: str
     qualification_id: str
     matrix_id: str
+    matrix_sha256: str
     candidate_id: str
+    candidate_sha256: str
     model_id: str
     family: str
     artifact_sha256: str
+    provider_contract: str
     qualified: bool
     score: float | None
     hard_gate_failures: list[str]
     missing_metrics: list[str]
     independence_gate_id: str
     independence_passed: bool
+    independence_evidence_sha256: str
     evidence_binding: dict[str, Any]
     evidence_sha256: str
 
@@ -46,6 +50,10 @@ def _canonical_bytes(value: Any) -> bytes:
     ).encode("utf-8")
 
 
+def _sha256(value: Any) -> str:
+    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+
+
 def _frozen_json(value: Any) -> Any:
     """Detach qualification evidence from caller-owned mutable objects."""
     return json.loads(_canonical_bytes(value).decode("utf-8"))
@@ -57,22 +65,125 @@ def _required_string(value: Any, label: str) -> str:
     return value.strip()
 
 
+def _required_sha256(value: Any, label: str) -> str:
+    digest = _required_string(value, label).lower()
+    if not _SHA256.fullmatch(digest):
+        raise ValueError(f"{label} must be a lowercase SHA-256 digest")
+    return digest
+
+
+def _candidate_package_binding(candidate: dict[str, Any]) -> tuple[str, str, str]:
+    package = candidate.get("package_target")
+    if not isinstance(package, dict):
+        raise ValueError("candidate.package_target is required for qualification")
+    model_id = _required_string(package.get("model_id"), "candidate.package_target.model_id")
+    artifact_sha256 = _required_sha256(
+        package.get("primary_artifact_sha256"),
+        "candidate.package_target.primary_artifact_sha256",
+    )
+    provider_contract = _required_string(
+        package.get("provider_contract"),
+        "candidate.package_target.provider_contract",
+    )
+    return model_id, artifact_sha256, provider_contract
+
+
+def _matrix_provider_contract(matrix: dict[str, Any]) -> str:
+    independence = matrix.get("independence")
+    if not isinstance(independence, dict):
+        raise ValueError("matrix.independence configuration is required")
+    return _required_string(
+        independence.get("provider_contract"),
+        "matrix.independence.provider_contract",
+    )
+
+
+def _recompute(
+    *,
+    candidate: dict[str, Any],
+    independence_evidence: dict[str, Any],
+    matrix: dict[str, Any],
+):
+    independence = evaluate_independence(independence_evidence, matrix)
+    candidate_id = _required_string(candidate.get("candidate_id"), "candidate_id")
+    family = _required_string(candidate.get("family"), "family")
+    if candidate_id != independence.candidate_id:
+        raise ValueError("candidate_id does not match the validated independence evidence")
+    if family != independence.family:
+        raise ValueError("candidate family does not match the independence evidence")
+
+    package_model_id, package_artifact_sha256, package_provider_contract = (
+        _candidate_package_binding(candidate)
+    )
+    matrix_provider_contract = _matrix_provider_contract(matrix)
+    if package_model_id != independence.model_id:
+        raise ValueError("candidate package model_id does not match independence evidence")
+    if package_artifact_sha256 != independence.artifact_sha256:
+        raise ValueError("candidate primary artifact does not match independence evidence")
+    if package_provider_contract != matrix_provider_contract:
+        raise ValueError("candidate provider contract does not match benchmark matrix")
+
+    evaluation = evaluate_candidate(
+        candidate,
+        matrix,
+        {"independence_test_passed": independence.passed},
+    )
+    matrix_id = _required_string(matrix.get("matrix_id"), "matrix_id")
+    return (
+        matrix_id,
+        matrix_provider_contract,
+        independence,
+        evaluation,
+        candidate_id,
+        family,
+    )
+
+
 def verify_qualification_receipt(receipt: dict[str, Any]) -> None:
     if receipt.get("schema_version") != QUALIFICATION_SCHEMA_VERSION:
-        raise ValueError("qualification schema_version must be 0.1")
-
-    evidence_sha256 = _required_string(
-        receipt.get("evidence_sha256"), "evidence_sha256"
-    ).lower()
-    if not _SHA256.fullmatch(evidence_sha256):
-        raise ValueError("evidence_sha256 must be a lowercase SHA-256 digest")
+        raise ValueError(
+            f"qualification schema_version must be {QUALIFICATION_SCHEMA_VERSION}"
+        )
 
     binding = receipt.get("evidence_binding")
     if not isinstance(binding, dict):
         raise ValueError("evidence_binding must be an object")
-    calculated = hashlib.sha256(_canonical_bytes(binding)).hexdigest()
-    if calculated != evidence_sha256:
+    if binding.get("schema_version") != QUALIFICATION_SCHEMA_VERSION:
+        raise ValueError(
+            f"evidence_binding schema_version must be {QUALIFICATION_SCHEMA_VERSION}"
+        )
+
+    matrix = binding.get("matrix")
+    candidate = binding.get("candidate")
+    independence_evidence = binding.get("independence_evidence")
+    if not isinstance(matrix, dict):
+        raise ValueError("evidence_binding.matrix must be an object")
+    if not isinstance(candidate, dict):
+        raise ValueError("evidence_binding.candidate must be an object")
+    if not isinstance(independence_evidence, dict):
+        raise ValueError("evidence_binding.independence_evidence must be an object")
+
+    evidence_sha256 = _required_sha256(receipt.get("evidence_sha256"), "evidence_sha256")
+    calculated_evidence = _sha256(binding)
+    if calculated_evidence != evidence_sha256:
         raise ValueError("evidence_sha256 does not match evidence_binding")
+
+    matrix_sha256 = _required_sha256(receipt.get("matrix_sha256"), "matrix_sha256")
+    candidate_sha256 = _required_sha256(
+        receipt.get("candidate_sha256"), "candidate_sha256"
+    )
+    independence_evidence_sha256 = _required_sha256(
+        receipt.get("independence_evidence_sha256"),
+        "independence_evidence_sha256",
+    )
+    if matrix_sha256 != _sha256(matrix):
+        raise ValueError("matrix_sha256 does not match embedded matrix")
+    if candidate_sha256 != _sha256(candidate):
+        raise ValueError("candidate_sha256 does not match embedded candidate")
+    if independence_evidence_sha256 != _sha256(independence_evidence):
+        raise ValueError(
+            "independence_evidence_sha256 does not match embedded independence evidence"
+        )
 
     qualification_id = _required_string(
         receipt.get("qualification_id"), "qualification_id"
@@ -81,71 +192,40 @@ def verify_qualification_receipt(receipt: dict[str, Any]) -> None:
     if qualification_id != expected_id:
         raise ValueError("qualification_id is not derived from evidence_sha256")
 
-    matrix_id = _required_string(receipt.get("matrix_id"), "matrix_id")
-    candidate_id = _required_string(receipt.get("candidate_id"), "candidate_id")
-    model_id = _required_string(receipt.get("model_id"), "model_id")
-    family = _required_string(receipt.get("family"), "family")
-    artifact_sha256 = _required_string(
-        receipt.get("artifact_sha256"), "artifact_sha256"
-    ).lower()
-    if not _SHA256.fullmatch(artifact_sha256):
-        raise ValueError("artifact_sha256 must be a lowercase SHA-256 digest")
-    independence_gate_id = _required_string(
-        receipt.get("independence_gate_id"), "independence_gate_id"
+    (
+        matrix_id,
+        provider_contract,
+        independence,
+        evaluation,
+        candidate_id,
+        family,
+    ) = _recompute(
+        candidate=candidate,
+        independence_evidence=independence_evidence,
+        matrix=matrix,
     )
 
-    if binding.get("schema_version") != QUALIFICATION_SCHEMA_VERSION:
-        raise ValueError("evidence_binding schema_version must be 0.1")
-    if binding.get("matrix_id") != matrix_id:
-        raise ValueError("matrix_id does not match evidence_binding")
+    expected_qualified = evaluation.eligible and independence.passed
+    expected_values = {
+        "matrix_id": matrix_id,
+        "candidate_id": candidate_id,
+        "model_id": independence.model_id,
+        "family": family,
+        "artifact_sha256": independence.artifact_sha256,
+        "provider_contract": provider_contract,
+        "independence_gate_id": independence.gate_id,
+        "independence_passed": independence.passed,
+        "qualified": expected_qualified,
+        "score": evaluation.score,
+        "hard_gate_failures": evaluation.hard_gate_failures,
+        "missing_metrics": evaluation.missing_metrics,
+    }
+    for label, expected in expected_values.items():
+        if receipt.get(label) != expected:
+            raise ValueError(f"{label} does not match recomputed qualification evidence")
 
-    bound_candidate = binding.get("candidate")
-    if not isinstance(bound_candidate, dict):
-        raise ValueError("evidence_binding.candidate must be an object")
-    if bound_candidate.get("candidate_id") != candidate_id:
-        raise ValueError("candidate_id does not match evidence_binding")
-    if bound_candidate.get("family") != family:
-        raise ValueError("family does not match evidence_binding candidate")
-
-    independence = binding.get("independence")
-    if not isinstance(independence, dict):
-        raise ValueError("evidence_binding.independence must be an object")
-    for label, expected in [
-        ("candidate_id", candidate_id),
-        ("model_id", model_id),
-        ("family", family),
-        ("artifact_sha256", artifact_sha256),
-        ("gate_id", independence_gate_id),
-        ("passed", receipt.get("independence_passed")),
-    ]:
-        if independence.get(label) != expected:
-            raise ValueError(f"{label} does not match embedded independence evidence")
-
-    qualified = receipt.get("qualified")
-    if not isinstance(qualified, bool):
-        raise ValueError("qualified must be boolean")
-    independence_passed = receipt.get("independence_passed")
-    if not isinstance(independence_passed, bool):
-        raise ValueError("independence_passed must be boolean")
-    hard_gate_failures = receipt.get("hard_gate_failures")
-    missing_metrics = receipt.get("missing_metrics")
-    if not isinstance(hard_gate_failures, list) or not all(
-        isinstance(value, str) for value in hard_gate_failures
-    ):
-        raise ValueError("hard_gate_failures must be a list of strings")
-    if not isinstance(missing_metrics, list) or not all(
-        isinstance(value, str) for value in missing_metrics
-    ):
-        raise ValueError("missing_metrics must be a list of strings")
-
-    if qualified:
-        if not independence_passed:
-            raise ValueError("qualified receipt requires independence_passed=true")
-        if hard_gate_failures or missing_metrics:
-            raise ValueError("qualified receipt cannot contain gate or metric failures")
-        score = receipt.get("score")
-        if isinstance(score, bool) or not isinstance(score, (int, float)):
-            raise ValueError("qualified receipt requires a numeric score")
+    if expected_qualified and evaluation.score is None:
+        raise ValueError("qualified receipt requires a numeric score")
 
 
 def qualify_candidate(
@@ -153,50 +233,50 @@ def qualify_candidate(
     independence_evidence: dict[str, Any],
     matrix: dict[str, Any],
 ) -> NativeQualification:
-    independence = evaluate_independence(independence_evidence, matrix)
-    candidate_id = str(candidate.get("candidate_id", "")).strip()
-    family = str(candidate.get("family", "")).strip()
-    if candidate_id != independence.candidate_id:
-        raise ValueError(
-            "candidate_id does not match the validated independence evidence"
-        )
-    if family != independence.family:
-        raise ValueError("candidate family does not match the independence evidence")
+    frozen_matrix = _frozen_json(matrix)
+    frozen_candidate = _frozen_json(candidate)
+    frozen_independence = _frozen_json(independence_evidence)
 
-    evaluation = evaluate_candidate(
-        candidate,
-        matrix,
-        {"independence_test_passed": independence.passed},
+    (
+        matrix_id,
+        provider_contract,
+        independence,
+        evaluation,
+        candidate_id,
+        family,
+    ) = _recompute(
+        candidate=frozen_candidate,
+        independence_evidence=frozen_independence,
+        matrix=frozen_matrix,
     )
-    matrix_id = str(matrix.get("matrix_id", "")).strip()
-    if not matrix_id:
-        raise ValueError("matrix_id is required")
 
-    evidence_binding = _frozen_json(
-        {
-            "schema_version": QUALIFICATION_SCHEMA_VERSION,
-            "matrix_id": matrix_id,
-            "candidate": candidate,
-            "independence": independence.to_dict(),
-        }
-    )
-    evidence_sha256 = hashlib.sha256(_canonical_bytes(evidence_binding)).hexdigest()
+    evidence_binding = {
+        "schema_version": QUALIFICATION_SCHEMA_VERSION,
+        "matrix": frozen_matrix,
+        "candidate": frozen_candidate,
+        "independence_evidence": frozen_independence,
+    }
+    evidence_sha256 = _sha256(evidence_binding)
     qualification_id = f"{QUALIFICATION_ID_PREFIX}{evidence_sha256[:24]}"
 
     result = NativeQualification(
         schema_version=QUALIFICATION_SCHEMA_VERSION,
         qualification_id=qualification_id,
         matrix_id=matrix_id,
+        matrix_sha256=_sha256(frozen_matrix),
         candidate_id=candidate_id,
+        candidate_sha256=_sha256(frozen_candidate),
         model_id=independence.model_id,
         family=family,
         artifact_sha256=independence.artifact_sha256,
+        provider_contract=provider_contract,
         qualified=evaluation.eligible and independence.passed,
         score=evaluation.score,
         hard_gate_failures=evaluation.hard_gate_failures,
         missing_metrics=evaluation.missing_metrics,
         independence_gate_id=independence.gate_id,
         independence_passed=independence.passed,
+        independence_evidence_sha256=_sha256(frozen_independence),
         evidence_binding=evidence_binding,
         evidence_sha256=evidence_sha256,
     )
