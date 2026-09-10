@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .candidates import load_json, rank_candidates
 from .independence import evaluate_independence
+from .qualification import qualify_candidate
 from .runner import run_foundation_smoke, save_result
 
 
@@ -23,6 +24,15 @@ def main(argv=None):
     independence_evaluate.add_argument("--matrix", required=True)
     independence_evaluate.add_argument("--evidence", required=True)
     independence_evaluate.add_argument("--output")
+
+    qualification_evaluate = sub.add_parser(
+        "qualification-evaluate",
+        help="Create a deterministic qualification record bound to candidate and native evidence.",
+    )
+    qualification_evaluate.add_argument("--matrix", required=True)
+    qualification_evaluate.add_argument("--candidate", required=True)
+    qualification_evaluate.add_argument("--independence-evidence", required=True)
+    qualification_evaluate.add_argument("--output")
 
     candidate_evaluate = sub.add_parser(
         "candidate-evaluate",
@@ -64,6 +74,17 @@ def main(argv=None):
             Path(args.output).write_text(rendered + "\n", encoding="utf-8")
         print(rendered)
         raise SystemExit(0 if result.passed else 1)
+
+    if args.command == "qualification-evaluate":
+        matrix = load_json(args.matrix)
+        candidate = load_json(args.candidate)
+        independence_evidence = load_json(args.independence_evidence)
+        result = qualify_candidate(candidate, independence_evidence, matrix)
+        rendered = json.dumps(result.to_dict(), indent=2)
+        if args.output:
+            Path(args.output).write_text(rendered + "\n", encoding="utf-8")
+        print(rendered)
+        raise SystemExit(0 if result.qualified else 1)
 
     if args.command == "candidate-evaluate":
         matrix = load_json(args.matrix)
