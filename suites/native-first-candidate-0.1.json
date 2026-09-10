@@ -14,6 +14,14 @@
     {"id": "benchmark_contamination_reviewed", "description": "Known contamination risks were reviewed."},
     {"id": "independence_test_passed", "description": "Required OYYO workflows execute with third-party AI providers disabled."}
   ],
+  "independence": {
+    "gate_id": "oyyo-native-independence-0.1",
+    "provider_contract": "oyyo-native-provider-0.1",
+    "required_workflows_by_family": {
+      "mini": ["chat", "structured_output", "tool_calling", "translation"],
+      "nano": ["chat", "structured_output", "translation"]
+    }
+  },
   "family_profiles": {
     "mini": {
       "role": "first executable engineering vehicle for laptop/desktop OYYO",
@@ -38,10 +46,11 @@
       ]
     }
   },
-  "ranking_rule": "A candidate is rankable only after every hard gate is true and every family metric is present. Eligible candidates rank by weighted normalized score descending.",
+  "ranking_rule": "A candidate is rankable only after every hard gate is true and every family metric is present. The independence gate is derived only from validated independence evidence and cannot be self-asserted by a candidate file. Eligible candidates rank by weighted normalized score descending.",
   "notes": [
     "Compare performance metrics on the same declared hardware profile.",
     "Ranges are N0/N1 engineering normalization bands, not product promises.",
-    "Public leaderboard position and raw parameter count are not selection gates."
+    "Public leaderboard position and raw parameter count are not selection gates.",
+    "Mini independence requires chat, structured output, tool calling and translation under the native provider contract. Nano currently requires chat, structured output and translation."
   ]
 }
