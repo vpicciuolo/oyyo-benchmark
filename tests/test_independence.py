@@ -35,21 +35,21 @@ MATRIX = {
 
 def evidence():
     model_id = "oyyo-mini-test"
-    package_sha256 = "aa" * 32
+    artifact_sha256 = "aa" * 32
     workflow = {
         "passed": True,
         "execution_mode": "native",
         "model_id": model_id,
         "provider_contract": "oyyo-native-provider-0.1",
         "external_ai_provider_used": False,
-        "package_sha256": package_sha256,
+        "artifact_sha256": artifact_sha256,
     }
     return {
         "schema_version": "0.1",
         "candidate_id": "candidate-mini",
         "model_id": model_id,
         "family": "mini",
-        "package_sha256": package_sha256,
+        "artifact_sha256": artifact_sha256,
         "runtime": {
             "model_id": model_id,
             "native_model_loaded": True,
@@ -74,6 +74,7 @@ class IndependenceEvaluationTest(unittest.TestCase):
         result = evaluate_independence(evidence(), MATRIX)
         self.assertTrue(result.passed)
         self.assertEqual(result.violations, [])
+        self.assertEqual(result.artifact_sha256, "aa" * 32)
         self.assertEqual(
             result.passed_workflows,
             ["chat", "structured_output", "tool_calling", "translation"],
@@ -129,12 +130,12 @@ class IndependenceEvaluationTest(unittest.TestCase):
         )
         self.assertTrue(verified.eligible)
 
-    def test_package_identity_mismatch_fails_workflow(self):
+    def test_artifact_identity_mismatch_fails_workflow(self):
         data = evidence()
-        data["workflows"]["chat"]["package_sha256"] = "bb" * 32
+        data["workflows"]["chat"]["artifact_sha256"] = "bb" * 32
         result = evaluate_independence(data, MATRIX)
         self.assertFalse(result.passed)
-        self.assertTrue(any("different package" in item for item in result.violations))
+        self.assertTrue(any("different artifact" in item for item in result.violations))
 
 
 if __name__ == "__main__":
