@@ -1,0 +1,48 @@
+{
+  "schema_version": "0.1",
+  "suite_id": "oyyo-mini-native-independence-workflows-0.1",
+  "provider_contract": "oyyo-native-provider-0.1",
+  "purpose": "Deterministic native-provider workflow fixtures for OYYO Mini independence evidence. These fixtures prove isolated execution and contract behavior; they do not replace broader quality benchmarks.",
+  "workflows": {
+    "chat": {
+      "prompt": "/no_think\nReturn exactly this text and nothing else: OYYO_CHAT_OK",
+      "validator": "exact_text",
+      "expected": "OYYO_CHAT_OK",
+      "max_tokens": 64
+    },
+    "structured_output": {
+      "prompt": "/no_think\nReturn exactly this JSON object and nothing else: {\"status\":\"OYYO_STRUCTURED_OK\",\"count\":2}",
+      "validator": "exact_json",
+      "expected": {
+        "status": "OYYO_STRUCTURED_OK",
+        "count": 2
+      },
+      "max_tokens": 96
+    },
+    "tool_calling": {
+      "prompt": "/no_think\nReturn exactly one JSON object and nothing else. Request the read-only fixture tool using this exact object: {\"type\":\"tool_call\",\"installation_id\":\"fixture-read\",\"tool\":\"lookup\",\"arguments\":{\"query\":\"OYYO\"}}",
+      "validator": "exact_json",
+      "expected": {
+        "type": "tool_call",
+        "installation_id": "fixture-read",
+        "tool": "lookup",
+        "arguments": {
+          "query": "OYYO"
+        }
+      },
+      "max_tokens": 128,
+      "notes": "This fixture validates native model structured tool-call generation under the agent capability profile. The full structured/tool hard gate additionally requires OYYO runtime orchestration and approval-boundary tests."
+    },
+    "translation": {
+      "prompt": "/no_think\nTranslate the English sentence 'The storage node is online.' into Italian. Return only the translation and nothing else.",
+      "validator": "accepted_texts",
+      "accepted": [
+        "Il nodo di archiviazione è online.",
+        "Il nodo di storage è online.",
+        "Il nodo di archiviazione è in linea.",
+        "Il nodo di storage è in linea."
+      ],
+      "max_tokens": 64
+    }
+  }
+}
