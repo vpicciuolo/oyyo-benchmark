@@ -28,3 +28,5 @@ jobs:
           --matrix suites/native-first-candidate-0.1.json
           --candidate examples/native-mini-candidate.example.json
           --independence-evidence examples/native-mini-independence.example.json
+          --output qualification.json
+      - run: oyyo-benchmark qualification-verify --receipt qualification.json
