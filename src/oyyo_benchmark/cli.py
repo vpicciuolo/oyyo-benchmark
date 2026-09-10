@@ -7,6 +7,7 @@ from pathlib import Path
 from .candidates import load_json, rank_candidates
 from .independence import evaluate_independence
 from .native_evidence import assemble_independence_evidence
+from .native_metrics import evaluate_native_metrics
 from .qualification import qualify_candidate, verify_qualification_receipt
 from .runner import run_foundation_smoke, save_result
 
@@ -48,6 +49,14 @@ def main(argv=None):
         help="Provider evaluation receipt as workflow=path. Repeat once per suite workflow.",
     )
     native_evidence.add_argument("--output")
+
+    native_metrics = sub.add_parser(
+        "native-metrics-evaluate",
+        help="Validate synthetic Mini scoring observations and calculate candidate matrix metrics.",
+    )
+    native_metrics.add_argument("--suite", required=True)
+    native_metrics.add_argument("--observations", required=True)
+    native_metrics.add_argument("--output")
 
     independence_evaluate = sub.add_parser(
         "independence-evaluate",
@@ -129,6 +138,29 @@ def main(argv=None):
             Path(args.output).write_text(rendered + "\n", encoding="utf-8")
         print(rendered)
         raise SystemExit(0 if all(item.passed for item in validations) else 1)
+
+    if args.command == "native-metrics-evaluate":
+        suite = load_json(args.suite)
+        observations = load_json(args.observations)
+        metrics, case_results = evaluate_native_metrics(suite, observations)
+        payload = {
+            "suite_id": suite.get("suite_id"),
+            "metrics": metrics,
+            "cases": [
+                {
+                    "case_id": item.case_id,
+                    "metric_id": item.metric_id,
+                    "passed": item.passed,
+                    "reason": item.reason,
+                }
+                for item in case_results
+            ],
+        }
+        rendered = json.dumps(payload, indent=2, ensure_ascii=False)
+        if args.output:
+            Path(args.output).write_text(rendered + "\n", encoding="utf-8")
+        print(rendered)
+        raise SystemExit(0)
 
     if args.command == "independence-evaluate":
         matrix = load_json(args.matrix)
