@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .candidates import load_json, rank_candidates
 from .independence import evaluate_independence
-from .qualification import qualify_candidate
+from .qualification import qualify_candidate, verify_qualification_receipt
 from .runner import run_foundation_smoke, save_result
 
 
@@ -33,6 +33,12 @@ def main(argv=None):
     qualification_evaluate.add_argument("--candidate", required=True)
     qualification_evaluate.add_argument("--independence-evidence", required=True)
     qualification_evaluate.add_argument("--output")
+
+    qualification_verify = sub.add_parser(
+        "qualification-verify",
+        help="Verify a qualification receipt and its embedded canonical evidence binding.",
+    )
+    qualification_verify.add_argument("--receipt", required=True)
 
     candidate_evaluate = sub.add_parser(
         "candidate-evaluate",
@@ -85,6 +91,24 @@ def main(argv=None):
             Path(args.output).write_text(rendered + "\n", encoding="utf-8")
         print(rendered)
         raise SystemExit(0 if result.qualified else 1)
+
+    if args.command == "qualification-verify":
+        receipt = load_json(args.receipt)
+        verify_qualification_receipt(receipt)
+        print(
+            json.dumps(
+                {
+                    "valid": True,
+                    "qualification_id": receipt["qualification_id"],
+                    "candidate_id": receipt["candidate_id"],
+                    "model_id": receipt["model_id"],
+                    "artifact_sha256": receipt["artifact_sha256"],
+                    "qualified": receipt["qualified"],
+                },
+                indent=2,
+            )
+        )
+        raise SystemExit(0)
 
     if args.command == "candidate-evaluate":
         matrix = load_json(args.matrix)
