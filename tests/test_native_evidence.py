@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import unittest
 
 from oyyo_benchmark.independence import evaluate_independence
@@ -13,19 +14,29 @@ ARTIFACT = "11" * 32
 PACKAGE = "22" * 32
 MODEL = "oyyo-mini-dev-test"
 CANDIDATE = "oyyo-mini-test-r1"
+SUITE_ID = "oyyo-mini-native-independence-workflows-0.1"
 
 
 def suite() -> dict:
     return {
         "schema_version": "0.1",
+        "suite_id": SUITE_ID,
         "provider_contract": "oyyo-native-provider-0.1",
         "workflows": {
-            "chat": {"validator": "exact_text", "expected": "OYYO_CHAT_OK"},
+            "chat": {
+                "prompt": "/no_think\nReturn exactly this text and nothing else: OYYO_CHAT_OK",
+                "validator": "exact_text",
+                "expected": "OYYO_CHAT_OK",
+                "max_tokens": 64,
+            },
             "structured_output": {
+                "prompt": "/no_think\nReturn exactly this JSON object and nothing else: {\"status\":\"OYYO_STRUCTURED_OK\",\"count\":2}",
                 "validator": "exact_json",
                 "expected": {"status": "OYYO_STRUCTURED_OK", "count": 2},
+                "max_tokens": 96,
             },
             "tool_calling": {
+                "prompt": "/no_think\nReturn exactly one JSON object and nothing else.",
                 "validator": "exact_json",
                 "expected": {
                     "type": "tool_call",
@@ -33,10 +44,13 @@ def suite() -> dict:
                     "tool": "lookup",
                     "arguments": {"query": "OYYO"},
                 },
+                "max_tokens": 128,
             },
             "translation": {
+                "prompt": "/no_think\nTranslate the English sentence 'The storage node is online.' into Italian. Return only the translation and nothing else.",
                 "validator": "accepted_texts",
                 "accepted": ["Il nodo di archiviazione è online."],
+                "max_tokens": 64,
             },
         },
     }
@@ -51,7 +65,13 @@ def output_for(workflow: str) -> str:
     }[workflow]
 
 
+def prompt_sha256(workflow: str) -> str:
+    prompt = suite()["workflows"][workflow]["prompt"]
+    return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+
 def receipt(workflow: str) -> dict:
+    spec = suite()["workflows"][workflow]
     return {
         "schema_version": "0.1",
         "receipt_type": "oyyo-native-provider-evaluation-0.1",
@@ -81,6 +101,10 @@ def receipt(workflow: str) -> dict:
         },
         "workflow": {
             "id": workflow,
+            "suite_id": SUITE_ID,
+            "prompt_sha256": prompt_sha256(workflow),
+            "max_tokens": spec["max_tokens"],
+            "evaluation_threads": 2,
             "deployment": "local",
             "policy_profile_id": "oyyo-local-runtime-default",
             "policy_profile_revision": "0.1",
@@ -142,6 +166,7 @@ class NativeEvidenceTest(unittest.TestCase):
             receipts(), suite(), candidate_id=CANDIDATE, family="mini"
         )
         self.assertTrue(all(item.passed for item in validations))
+        self.assertEqual(evidence["suite_id"], SUITE_ID)
         result = evaluate_independence(evidence, matrix())
         self.assertTrue(result.passed)
         self.assertEqual(result.artifact_sha256, ARTIFACT)
@@ -151,6 +176,26 @@ class NativeEvidenceTest(unittest.TestCase):
         values = receipts()
         values["translation"]["candidate"]["artifact_sha256"] = "44" * 32
         with self.assertRaisesRegex(ValueError, "same model, artifact and package"):
+            assemble_independence_evidence(values, suite(), candidate_id=CANDIDATE, family="mini")
+
+    def test_receipt_must_bind_frozen_suite_id(self):
+        values = receipts()
+        values["chat"]["workflow"]["suite_id"] = "wrong-suite"
+        with self.assertRaisesRegex(ValueError, "does not match expected"):
+            assemble_independence_evidence(values, suite(), candidate_id=CANDIDATE, family="mini")
+
+    def test_receipt_must_bind_exact_frozen_prompt(self):
+        values = receipts()
+        values["chat"]["workflow"]["prompt_sha256"] = hashlib.sha256(
+            b"different prompt"
+        ).hexdigest()
+        with self.assertRaisesRegex(ValueError, "prompt_sha256"):
+            assemble_independence_evidence(values, suite(), candidate_id=CANDIDATE, family="mini")
+
+    def test_receipt_must_bind_exact_token_budget(self):
+        values = receipts()
+        values["structured_output"]["workflow"]["max_tokens"] = 97
+        with self.assertRaisesRegex(ValueError, "max_tokens"):
             assemble_independence_evidence(values, suite(), candidate_id=CANDIDATE, family="mini")
 
     def test_external_provider_activity_is_rejected(self):

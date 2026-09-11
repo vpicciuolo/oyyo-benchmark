@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 import re
 from typing import Any
@@ -30,6 +31,12 @@ def _required_bool(value: Any, label: str) -> bool:
     return value
 
 
+def _required_positive_int(value: Any, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+    return value
+
+
 def _required_dict(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{label} must be an object")
@@ -41,6 +48,10 @@ def _sha256(value: Any, label: str) -> str:
     if not _SHA256.fullmatch(text):
         raise ValueError(f"{label} must be a SHA-256 digest")
     return text
+
+
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _canonical_json(value: Any) -> str:
@@ -90,7 +101,9 @@ def validate_workflow_output(
 def _validate_receipt(
     receipt: dict[str, Any],
     expected_workflow: str,
-) -> tuple[str, str, str, str, WorkflowValidation]:
+    expected_suite_id: str,
+    spec: dict[str, Any],
+) -> tuple[str, str, str, str, str]:
     if receipt.get("schema_version") != "0.1":
         raise ValueError("provider evaluation receipt schema_version must be 0.1")
     if receipt.get("receipt_type") != _RECEIPT_TYPE:
@@ -121,6 +134,34 @@ def _validate_receipt(
         raise ValueError(
             f"provider receipt workflow {workflow_id} does not match expected {expected_workflow}"
         )
+
+    suite_id = _required_string(workflow.get("suite_id"), "workflow.suite_id")
+    if suite_id != expected_suite_id:
+        raise ValueError(
+            f"provider receipt suite {suite_id} does not match expected {expected_suite_id}"
+        )
+
+    expected_prompt = spec.get("prompt")
+    if not isinstance(expected_prompt, str) or not expected_prompt:
+        raise ValueError(f"workflow {workflow_id} prompt must be a non-empty string")
+    expected_prompt_sha256 = _sha256_text(expected_prompt)
+    observed_prompt_sha256 = _sha256(workflow.get("prompt_sha256"), "workflow.prompt_sha256")
+    if observed_prompt_sha256 != expected_prompt_sha256:
+        raise ValueError(
+            f"workflow {workflow_id} prompt_sha256 does not match the frozen suite prompt"
+        )
+
+    expected_max_tokens = _required_positive_int(
+        spec.get("max_tokens"), f"workflow {workflow_id} max_tokens"
+    )
+    observed_max_tokens = _required_positive_int(
+        workflow.get("max_tokens"), "workflow.max_tokens"
+    )
+    if observed_max_tokens != expected_max_tokens:
+        raise ValueError(
+            f"workflow {workflow_id} max_tokens {observed_max_tokens} does not match frozen suite value {expected_max_tokens}"
+        )
+
     if workflow.get("deployment") != "local":
         raise ValueError("native candidate workflow evidence must use local deployment")
     if _required_bool(
@@ -158,6 +199,7 @@ def assemble_independence_evidence(
 ) -> tuple[dict[str, Any], list[WorkflowValidation]]:
     if suite.get("schema_version") != "0.1":
         raise ValueError("native workflow suite schema_version must be 0.1")
+    suite_id = _required_string(suite.get("suite_id"), "suite.suite_id")
     suite_contract = _required_string(suite.get("provider_contract"), "suite.provider_contract")
     if suite_contract != _PROVIDER_CONTRACT:
         raise ValueError(f"suite provider_contract must be {_PROVIDER_CONTRACT}")
@@ -178,7 +220,7 @@ def assemble_independence_evidence(
     for workflow_id, spec_value in specs.items():
         spec = _required_dict(spec_value, f"suite.workflows.{workflow_id}")
         model_id, artifact_sha256, package_sha256, contract, output_text = _validate_receipt(
-            receipts_by_workflow[workflow_id], workflow_id
+            receipts_by_workflow[workflow_id], workflow_id, suite_id, spec
         )
         if bound_model is None:
             bound_model = model_id
@@ -200,6 +242,9 @@ def assemble_independence_evidence(
             "provider_contract": contract,
             "external_ai_provider_used": False,
             "artifact_sha256": artifact_sha256,
+            "suite_id": suite_id,
+            "prompt_sha256": _sha256_text(spec["prompt"]),
+            "max_tokens": spec["max_tokens"],
             "validation_reason": validation.reason,
         }
 
@@ -211,6 +256,7 @@ def assemble_independence_evidence(
         "family": _required_string(family, "family"),
         "artifact_sha256": bound_artifact,
         "package_manifest_sha256": bound_package,
+        "suite_id": suite_id,
         "runtime": {
             "model_id": bound_model,
             "native_model_loaded": True,
